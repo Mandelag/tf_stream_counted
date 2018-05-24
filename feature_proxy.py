@@ -23,10 +23,10 @@ class FeatureProxy(object):
         for feature in INTERNAL_FEATURE_ADDRESS:
             fjson = {}
             try:
-                req = requests.get(feature, timeout=0.0007)
+                req = requests.get(feature, timeout=0.005)
                 fjson = req.json()
                 if len(fjson)>0:
-                    template_copy["features"].append(fjson)
+                    template_copy.append(fjson)
             except:
                 print("exceptione")
                 pass
