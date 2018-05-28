@@ -1,5 +1,23 @@
 import sys
 import os
+import time
+import cv2
+import numpy as np
+
+current_milli_time = lambda: int(round(time.time() * 1000))
+
+class CCTVDownloader():
+    def __init__(self, URL):
+        self.cap = cv2.VideoCapture(URL)
+        ret, image_np = self.cap.read()
+        self.img = image_np
+        
+    def run(self):
+        while True:
+            stime = current_milli_time()
+            ret, image_np = self.cap.read()
+            self.img = image_np
+            print(ret, image_np.size, "   Download in:", current_milli_time()-stime, "ms")
 
 def detection_histogram(scores, classes, category_index):
     i = 0
@@ -13,11 +31,9 @@ def detection_histogram(scores, classes, category_index):
     return result
 
 def main():
-    import numpy as np
     import tensorflow as tf
     import cherrypy
     import threading
-    import cv2
 
     from services import CCTVService
 
@@ -41,7 +57,13 @@ def main():
     cherrypy.server.socket_port = BIND_PORT
     server = threading.Thread(target=cherrypy.quickstart, args=[service])
     server.start()
-
+    
+    # Start Image Downloader
+    downloader = CCTVDownloader(VIDEO_STREAM_SOURCE_URL)
+        
+    download_thread = threading.Thread(target=downloader.run)
+    download_thread.start()
+    
     PATH_TO_MODELS = os.path.join("..","models")
     sys.path.append(os.path.join(sys.path[0], PATH_TO_MODELS, "research"))
     sys.path.append(os.path.join(sys.path[0], PATH_TO_MODELS, "research", "object_detection"))
@@ -65,12 +87,12 @@ def main():
     label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
     categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
     category_index = label_map_util.create_category_index(categories)
-    cap = cv2.VideoCapture(VIDEO_STREAM_SOURCE_URL)
-
+    
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
             while True:
-                ret, image_np = cap.read()
+                image_np = downloader.img
+                print(image_np)
                 image_np_expanded = np.expand_dims(image_np, axis=0)
                 image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
                 boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
@@ -78,10 +100,13 @@ def main():
                 classes = detection_graph.get_tensor_by_name('detection_classes:0')
                 num_detections = detection_graph.get_tensor_by_name('num_detections:0')
                 # Actual detection.
+                stime = current_milli_time()
                 (boxes, scores, classes, num_detections) = sess.run(
                     [boxes, scores, classes, num_detections],
                     feed_dict={image_tensor: image_np_expanded})
+                print("Detection: ",current_milli_time()-stime, "ms")
                 # Visualization of the results of a detection.
+                stime = current_milli_time()
                 vis_util.visualize_boxes_and_labels_on_image_array(
                     image_np,
                     np.squeeze(boxes),
@@ -91,6 +116,7 @@ def main():
                     use_normalized_coordinates=True,
                     line_thickness=2,
                     min_score_thresh=.4)
+                print("Drawing: ", current_milli_time()-stime)
                 data = detection_histogram(np.squeeze(scores), np.squeeze(classes).astype(np.int32), category_index)
                 service.data = {"geometry":{"x":CCTV_LON, "y":CCTV_LAT},"attributes": {**{"OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL}, **data}}
                 _, jpeg_bytes_tmp = cv2.imencode('.jpg', image_np) # to jpeg
