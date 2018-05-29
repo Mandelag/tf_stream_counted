@@ -71,7 +71,7 @@ def main():
     from utils import label_map_util
     from utils import visualization_utils as vis_util
 
-    MODEL_NAME = 'ssd_mobilenet_v1_coco_2017_11_17'
+    MODEL_NAME = 'ssdlite_mobilenet_v2_coco_2018_05_09'
     PATH_TO_CKPT = os.path.join(sys.path[0], PATH_TO_MODELS, "research", "object_detection", MODEL_NAME, "frozen_inference_graph.pb")
     PATH_TO_LABELS = os.path.join(sys.path[0], PATH_TO_MODELS, "research", "object_detection", "data", "mscoco_label_map.pbtxt")
     NUM_CLASSES = 90
@@ -90,9 +90,11 @@ def main():
     
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
+            image_np = ""
             while True:
+                if np.array_equal(downloader.img,image_np):
+                    continue
                 image_np = downloader.img
-                print(image_np)
                 image_np_expanded = np.expand_dims(image_np, axis=0)
                 image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
                 boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
