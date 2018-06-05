@@ -7,17 +7,35 @@ import numpy as np
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 class CCTVDownloader():
-    def __init__(self, URL):
-        self.cap = cv2.VideoCapture(URL)
+
+    def initialize(self):
+        if self.cap is not None:
+            print("===RESTARTING===")
+            self.cap.release()
+            self.cap = None
+        self.cap = cv2.VideoCapture(self.URL)
         ret, image_np = self.cap.read()
         self.img = image_np
         
+    def __init__(self, URL):
+        self.RESTART_TIME_MS = 1000*30
+        self.URL = URL 
+        self.cap = None
+        self.img = None
+        self.initialize()
+        
     def run(self):
         while True:
-            stime = current_milli_time()
-            ret, image_np = self.cap.read()
-            self.img = image_np
-            print(ret, image_np.size, "   Download in:", current_milli_time()-stime, "ms")
+            self.initialize()
+            timer = 0
+            while timer<self.RESTART_TIME_MS:
+                stime = current_milli_time()
+                ret, image_np = self.cap.read()
+                if image_np is not None:
+                    self.img = image_np
+                t = current_milli_time()-stime
+                print("   Download in:", t, "ms")
+                timer = timer + t
 
 def detection_histogram(scores, classes, category_index):
     i = 0
@@ -90,11 +108,11 @@ def main():
     
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
-            image_np = ""
+            image_np = [[[0],[0],[0]],[[0],[0],[0]],[[0],[0],[0]]]
             while True:
-                if np.array_equal(downloader.img,image_np):
+                if np.array_equal(downloader.img,image_np) or downloader.img is None:
                     continue
-                image_np = downloader.img
+                image_np = np.copy(downloader.img)
                 image_np_expanded = np.expand_dims(image_np, axis=0)
                 image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
                 boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
