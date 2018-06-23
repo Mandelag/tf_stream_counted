@@ -118,10 +118,18 @@ def main():
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
             image_np = [[[0],[0],[0]],[[0],[0],[0]],[[0],[0],[0]]]
+            M = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+            WD = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
             while True:
-                date = datetime.now(timezone.utc).strftime("%Y%m%d")
+                dt = datetime.now(timezone.utc)
+                date_json = {
+                    "datetime": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "date": dt.strftime("%Y-%m-%d"),
+                    "tanggal": str(WD[dt.weekday()])+", "+str(dt.day)+" "+str(M[dt.month-1])+" "+str(dt.year),
+                    "time": dt.strftime("%H:%M:%S")
+                }
                 if downloader.img is None:
-                    service.data = {"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "date": date, "status": "OFFLINE"}
+                    service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "status": "OFFLINE"}, **date_json}
                     continue
                 if np.array_equal(downloader.img,image_np):
                     continue
@@ -151,7 +159,7 @@ def main():
                     min_score_thresh=.4)
                 #print("Drawing: ", current_milli_time()-stime)
                 data = detection_histogram(np.squeeze(scores), np.squeeze(classes).astype(np.int32), category_index)
-                service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "date": date, "status": "ONLINE"}, **data}
+                service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "status": "ONLINE"}, **date_json, **data}
                 _, jpeg_bytes_tmp = cv2.imencode('.jpg', image_np) # to jpeg
                 service.jpeg_bytes = jpeg_bytes_tmp.tobytes()
                 
