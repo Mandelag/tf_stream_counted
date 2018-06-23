@@ -17,25 +17,27 @@ class CCTVDownloader():
         ret, image_np = self.cap.read()
         self.img = image_np
         
-    def __init__(self, URL):
-        self.RESTART_TIME_MS = 1000*30
+    def __init__(self, URL, onfinish = lambda: True):
+        self.RESTART_TIME_MS = 10000
         self.URL = URL 
         self.cap = None
         self.img = None
+        self.onfinish = onfinish
         self.initialize()
         
     def run(self):
-        while True:
-            self.initialize()
-            timer = 0
-            while timer<self.RESTART_TIME_MS:
-                stime = current_milli_time()
-                ret, image_np = self.cap.read()
-                if image_np is not None:
-                    self.img = image_np
-                t = current_milli_time()-stime
-                print("   Download in:", t, "ms")
-                timer = timer + t
+        timer = 0
+        while timer<self.RESTART_TIME_MS:
+            stime = current_milli_time()
+            ret, image_np = self.cap.read()
+            if image_np is not None:
+                self.img = image_np
+            t = current_milli_time()-stime
+            print("   Download in:", t, "ms")
+            timer = timer + t
+            print("COUNTA" + str(timer))
+        print("THREAD STOPPED!")
+        self.onfinish(self)
 
 def detection_histogram(scores, classes, category_index):
     i = 0
@@ -77,11 +79,13 @@ def main():
     server.start()
     
     # Start Image Downloader
-    downloader = CCTVDownloader(VIDEO_STREAM_SOURCE_URL)
-        
-    download_thread = threading.Thread(target=downloader.run)
-    download_thread.start()
-    
+    def startDownloader(downloader):
+        download_thread = threading.Thread(target=downloader.run)
+        download_thread.start()
+
+    downloader = CCTVDownloader(VIDEO_STREAM_SOURCE_URL, startDownloader)
+    startDownloader(downloader)
+
     PATH_TO_MODELS = os.path.join("..","models")
     sys.path.append(os.path.join(sys.path[0], PATH_TO_MODELS, "research"))
     sys.path.append(os.path.join(sys.path[0], PATH_TO_MODELS, "research", "object_detection"))
@@ -152,4 +156,7 @@ if __name__ == "__main__":
             "<BIND_ADDRESS> <BIND_PORT> <EXTERNAL_ADDRESS> <EXTERNAL_PORT> <VIDEO_STREAM_SOURCE_URL> "+
             "<OBJECTID> <CCTV_NAME> <CCTV_ADDRESS> <CCTV_HEIGHT> <CCTV_LON> <CCTV_LAT>")
         sys.exit(1)
-    main()
+    while True:
+        main()
+        time.sleep(600)
+
