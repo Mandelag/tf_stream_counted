@@ -18,7 +18,7 @@ class CCTVDownloader():
         self.img = image_np
         
     def __init__(self, URL, onfinish = lambda: True):
-        self.RESTART_TIME_MS = 10000
+        self.RESTART_TIME_MS = 15*60*1000
         self.URL = URL 
         self.cap = None
         self.img = None
@@ -34,6 +34,10 @@ class CCTVDownloader():
                 self.img = image_np
             t = current_milli_time()-stime
             print("   Download in:", t, "ms")
+            if t < 5:
+                print("No image..")
+                time.sleep(30)
+                break
             timer = timer + t
             print("COUNTA" + str(timer))
         print("THREAD STOPPED!")
@@ -110,11 +114,16 @@ def main():
     categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
     category_index = label_map_util.create_category_index(categories)
     
+    from datetime import datetime, timezone
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
             image_np = [[[0],[0],[0]],[[0],[0],[0]],[[0],[0],[0]]]
             while True:
-                if np.array_equal(downloader.img,image_np) or downloader.img is None:
+                date = datetime.now(timezone.utc).strftime("%Y%m%d")
+                if downloader.img is None:
+                    service.data = {"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "date": date, "status": "OFFLINE"}
+                    continue
+                if np.array_equal(downloader.img,image_np):
                     continue
                 image_np = np.copy(downloader.img)
                 image_np_expanded = np.expand_dims(image_np, axis=0)
@@ -128,7 +137,7 @@ def main():
                 (boxes, scores, classes, num_detections) = sess.run(
                     [boxes, scores, classes, num_detections],
                     feed_dict={image_tensor: image_np_expanded})
-                print("Detection: ",current_milli_time()-stime, "ms")
+                #print("Detection: ",current_milli_time()-stime, "ms")
                 # Visualization of the results of a detection.
                 stime = current_milli_time()
                 vis_util.visualize_boxes_and_labels_on_image_array(
@@ -140,9 +149,9 @@ def main():
                     use_normalized_coordinates=True,
                     line_thickness=2,
                     min_score_thresh=.4)
-                print("Drawing: ", current_milli_time()-stime)
+                #print("Drawing: ", current_milli_time()-stime)
                 data = detection_histogram(np.squeeze(scores), np.squeeze(classes).astype(np.int32), category_index)
-                service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL}, **data}
+                service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "date": date, "status": "ONLINE"}, **data}
                 _, jpeg_bytes_tmp = cv2.imencode('.jpg', image_np) # to jpeg
                 service.jpeg_bytes = jpeg_bytes_tmp.tobytes()
                 
