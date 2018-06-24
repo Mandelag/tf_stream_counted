@@ -37,11 +37,12 @@ class CCTVService(object):
                 yield contentTypeString.encode('UTF-8')
                 yield ("Content-Length: " + str(len(self.jpeg_bytes))).encode('UTF-8')
                 yield "\r\n\r\n".encode('UTF-8')
-                self.cond.acquire()
-                self.cond.wait()
+                #self.cond.acquire()
+                #self.cond.wait(3)
                 yield self.jpeg_bytes
-                self.cond.release()
+                #self.cond.release()
                 yield boundaryPlus.encode('UTF-8')
+                time.sleep(0.5)
         return mjpeg()
         
     index.exposed = True

@@ -11,13 +11,23 @@ class CCTVDownloader():
         self.cap = cv2.VideoCapture(URL)
         ret, image_np = self.cap.read()
         self.img = image_np
+        self.URL = URL
         
     def run(self):
+        i = 0
         while True:
+            if i >= 60000:
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.URL)
+                i = 0
+                print("Restarting..")
+                time.sleep(1)
             stime = current_milli_time()
             ret, image_np = self.cap.read()
             self.img = image_np
-            print(ret, image_np.size, "   Download in:", current_milli_time()-stime, "ms")
+            dt = current_milli_time()-stime
+            i = i + dt
+            print(ret, image_np.size, "   Download in:", dt, "ms")
 
 def detection_histogram(scores, classes, category_index):
     i = 0
@@ -124,9 +134,11 @@ def main():
                 _, jpeg_bytes_tmp = cv2.imencode('.jpg', image_np) # to jpeg
                 service.jpeg_bytes = jpeg_bytes_tmp.tobytes()
                 
-                cond.acquire()
-                cond.notifyAll()
-                cond.release()
+                #cond.acquire()
+                #cond.notify()
+                #print("NOTIFIED==")
+                #cond.release()
+                time.sleep(0.5)
 
 if __name__ == "__main__":
     if len(sys.argv) != 12:
