@@ -4,6 +4,8 @@ import time
 import cv2
 import numpy as np
 from datetime import datetime, timezone
+from tzlocal import get_localzone
+import pytz
 
 current_milli_time = lambda: int(round(time.time() * 1000))
 
@@ -32,6 +34,18 @@ class CCTVDownloader():
             i = i + dt
             print(ret, image_np.size, "   Download in:", dt, "ms")
 
+def majority(res):
+    majority_value = 0
+    majority = "None"
+    for k in res.keys():
+        if res[k] == majority_value:
+            majority_value = res[k]
+            majority = "None"
+        if res[k] > majority_value:
+            majority_value = res[k]
+            majority = k
+    return (majority, majority_value)
+
 def detection_histogram(scores, classes, category_index):
     i = 0
     result = {"person":0, "bicycle":0, "car":0, "motorcycle":0, "bus":0, "train":0, "truck":0}
@@ -41,6 +55,8 @@ def detection_histogram(scores, classes, category_index):
         except KeyError:
             pass
         i = i + 1
+    maj = majority(result)
+    result = {**result,**{"majority":maj[0], "majority_count":maj[1]}}
     return result
 
 def main():
@@ -107,12 +123,13 @@ def main():
             M = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
             WD = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
             while True:
-                dt = datetime.now(timezone.utc)
+                utc_dt = datetime.now(pytz.utc)
+                
                 date_json = {
-                    "datetime": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "date": dt.strftime("%Y-%m-%d"),
-                    "tanggal": str(WD[dt.weekday()])+", "+str(dt.day)+" "+str(M[dt.month-1])+" "+str(dt.year),
-                    "time": dt.strftime("%H:%M:%S")
+                    "datetime": str(utc_dt.astimezone(get_localzone())),
+                    "date": utc_dt.strftime("%Y-%m-%d"),
+                    "tanggal": str(WD[utc_dt.weekday()])+", "+str(utc_dt.day)+" "+str(M[utc_dt.month-1])+" "+str(utc_dt.year),
+                    "time": utc_dt.strftime("%H:%M:%S")
                 }
                 if downloader.img is None:
                     service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "status": "OFFLINE"}, **date_json}
