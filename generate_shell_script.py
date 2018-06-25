@@ -4,6 +4,7 @@ import csv
 with open("cctv.csv", "r") as file:
     reader = csv.reader(file)
     i = 0
+    next(reader, None)
     for row in reader:
         i = i + 1
         with open("start"+str(i)+".sh", "w") as out:
