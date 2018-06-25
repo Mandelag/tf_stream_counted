@@ -116,7 +116,8 @@ def main():
     label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
     categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
     category_index = label_map_util.create_category_index(categories)
-    
+   
+    output_json = {"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL}
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
             image_np = [[[0],[0],[0]],[[0],[0],[0]],[[0],[0],[0]]]
@@ -132,7 +133,7 @@ def main():
                     "time": utc_dt.strftime("%H:%M:%S")
                 }
                 if downloader.img is None:
-                    service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "status": "OFFLINE"}, **date_json}
+                    service.data = {**output_json, **{"status":"OFFLINE"}, **date_json}
                     continue
                 if np.array_equal(downloader.img,image_np):
                     continue
@@ -162,7 +163,7 @@ def main():
                     min_score_thresh=.4)
                 #print("Drawing: ", current_milli_time()-stime)
                 data = detection_histogram(np.squeeze(scores), np.squeeze(classes).astype(np.int32), category_index)
-                service.data = {**{"x":CCTV_LON, "y":CCTV_LAT, "OBJECTID":OBJECTID,"name":CCTV_NAME, "address":CCTV_ADDRESS, "source_url":VIDEO_STREAM_SOURCE_URL, "ip_detection":VIDEO_STREAM_DETECTION_URL, "status": "ONLINE"}, **date_json, **data}
+                service.data = {**output_json,**{ "status": "ONLINE"}, **date_json, **data}
                 _, jpeg_bytes_tmp = cv2.imencode('.jpg', image_np) # to jpeg
                 service.jpeg_bytes = jpeg_bytes_tmp.tobytes()
                 
